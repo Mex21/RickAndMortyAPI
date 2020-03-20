@@ -28,16 +28,18 @@ import java.util.List;
 public class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private Context context;
 
-    private static final int ITEM = 0;
-    private static final int LOADING = 1;
-    private List<Characters> apiResult;
-    private boolean isLoadingAdded = false;
+    public static final int ITEM = 0;
+    public static final int LOADING = 1;
+    public static final int RETRY = 2;
+    private ArrayList<Characters> apiResult;
+    private ArrayList<Integer> listViewType;
     private OnItemClickListener listener;
 
 
     public RecyclerViewAdapter(Context context, OnItemClickListener listener) {
         this.context = context;
         apiResult = new ArrayList<>();
+        listViewType = new ArrayList<>();
         this.listener = listener;
     }
 
@@ -62,6 +64,10 @@ public class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
                 View viewLoading = inflater.inflate(R.layout.recycler_view_progress_bar,parent,false);
                 viewHolder = new LoadingViewHolder(viewLoading);
                 break;
+            case RETRY :
+                View viewRetry = inflater.inflate(R.layout.recycler_view_retry,parent,false);
+                viewHolder = new RetryViewHolder(viewRetry,listener);
+                break;
         }
         return viewHolder;
     }
@@ -75,7 +81,6 @@ public class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
     @Override
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         Characters characters = apiResult.get(position);
-
         switch (getItemViewType(position)){
             case ITEM:
                 final CharactersViewHolder charactersViewHolder = (CharactersViewHolder) holder;
@@ -100,6 +105,7 @@ public class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
                         .into(charactersViewHolder.imageView);
                 break;
             case LOADING:
+            case RETRY:
                 //Do nothing
                 break;
         }
@@ -121,17 +127,17 @@ public class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
      */
     @Override
     public int getItemViewType(int position) {
-        return (position == apiResult.size() - 1 && isLoadingAdded) ? LOADING : ITEM;
+        return listViewType.get(position);
     }
 
-
     /**
-     * Add a character to the recyclerView and notify observer
+     * Add a character to the recyclerView and add the view type into listViewType and notify observer
      *
      * @param character the character object to add
      */
-    public void add (Characters character){
+    public void add(Characters character, int viewType){
         apiResult.add(character);
+        listViewType.add(viewType);
         notifyItemInserted(apiResult.size()-1);
     }
 
@@ -139,10 +145,17 @@ public class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
      * Add a List of character to the recyclerView and notify observer
      *
      * @param charactersList the list of character object to add
+     * @param typeViewList the list of viewType to add
      */
-    public void addAll(List<Characters> charactersList) {
-        for (Characters characters : charactersList) {
-            add(characters);
+    public void addAll(List<Characters> charactersList, List<Integer> typeViewList) {
+        for (int i = 0; i < charactersList.size(); i++) {
+            int type;
+            if (typeViewList == null){
+                type = ITEM;
+            }else {
+                type = typeViewList.get(i);
+            }
+            add(charactersList.get(i),type);
         }
     }
 
@@ -150,34 +163,42 @@ public class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
      * Add the Progress Bar at the end of the recyclerView
      */
     public void addLoadingFooter() {
-        isLoadingAdded = true;
-        add(new Characters());
+        add(new Characters(),LOADING);
     }
 
     /**
-     * Remove progress bar and notify observer
+     * Add the Retry at the end of the recyclerView
      */
-    public void removeLoadingFooter() {
-        isLoadingAdded = false;
+    public void addRetry(){
+        add(new Characters(),RETRY);
+    }
 
+    /**
+     * Remove footer and notify observer
+     */
+    public void removeFooter() {
         int position = apiResult.size() - 1;
         Characters characters = apiResult.get(position) ;
 
         if (characters != null) {
             apiResult.remove(position);
+            listViewType.remove(position);
             notifyItemRemoved(position);
         }
     }
 
-    public List<Characters> getApiResult(){
+
+    public ArrayList<Characters> getApiResult(){
         return apiResult;
+    }
+
+    public ArrayList<Integer> getListViewType() {
+        return listViewType;
     }
 
     public interface OnItemClickListener{
         void onItemClick(View view, int position);
     }
-
-
     /**
      * Character item View Holder
      */
@@ -211,4 +232,24 @@ public class RecyclerViewAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
             super(itemView);
         }
     }
+
+    /**
+     * Retry item View Holder
+     */
+    protected static class RetryViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
+        private OnItemClickListener listener;
+
+        RetryViewHolder(View itemView, OnItemClickListener listener) {
+            super(itemView);
+            this.listener = listener;
+            itemView.setOnClickListener(this);
+        }
+
+        @Override
+        public void onClick(View v) {
+            listener.onItemClick(v, getAdapterPosition());
+        }
+    }
+
+
 }
